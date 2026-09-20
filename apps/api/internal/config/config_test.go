@@ -10,6 +10,7 @@ func TestLoad_Defaults(t *testing.T) {
 	// ensuring tests do not affect one another.
 	t.Setenv("APP_ENV", "")
 	t.Setenv("APP_PORT", "")
+	t.Setenv("DATABASE_URL", "")
 
 	cfg := Load()
 
@@ -19,6 +20,11 @@ func TestLoad_Defaults(t *testing.T) {
 
 	if cfg.AppPort != "8080" {
 		t.Errorf("expected AppPort to be '8080', got '%s'", cfg.AppPort)
+	}
+
+	// When DATABASE_URL is not set, DatabaseURL should be an empty string.
+	if cfg.DatabaseURL != "" {
+		t.Errorf("expected DatabaseURL to be empty, got '%s'", cfg.DatabaseURL)
 	}
 }
 
@@ -35,5 +41,28 @@ func TestLoad_ConfiguredValues(t *testing.T) {
 
 	if cfg.AppPort != "9090" {
 		t.Errorf("expected AppPort to be '9090', got '%s'", cfg.AppPort)
+	}
+}
+
+func TestLoad_DatabaseURL_NotSet(t *testing.T) {
+	// When DATABASE_URL is absent, DatabaseURL must be an empty string.
+	t.Setenv("DATABASE_URL", "")
+
+	cfg := Load()
+
+	if cfg.DatabaseURL != "" {
+		t.Errorf("expected DatabaseURL to be empty when not set, got '%s'", cfg.DatabaseURL)
+	}
+}
+
+func TestLoad_DatabaseURL_Configured(t *testing.T) {
+	// Use a placeholder DSN — no real credentials in source code.
+	const fakeDSN = "postgres://app_user:placeholder@localhost:5432/zero_to_ai_engineer?sslmode=disable"
+	t.Setenv("DATABASE_URL", fakeDSN)
+
+	cfg := Load()
+
+	if cfg.DatabaseURL != fakeDSN {
+		t.Errorf("expected DatabaseURL to be '%s', got '%s'", fakeDSN, cfg.DatabaseURL)
 	}
 }
