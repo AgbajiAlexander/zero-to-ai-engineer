@@ -10,8 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/zero-to-ai-engineer/api/internal/auth/session"
 	"github.com/zero-to-ai-engineer/api/internal/config"
 	"github.com/zero-to-ai-engineer/api/internal/database"
+	"github.com/zero-to-ai-engineer/api/internal/httpapi"
 )
 
 func readyHandlerWithPing(pingFn func(context.Context) error) http.HandlerFunc {
@@ -43,6 +45,9 @@ func readyHandler(db *database.DB) http.HandlerFunc {
 
 func main() {
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("configuration invalid: %v", err)
+	}
 	port := cfg.AppPort
 
 	startupCtx, startupCancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -52,19 +57,31 @@ func main() {
 		log.Fatalf("database startup failed: %v", err)
 	}
 
-	mux := http.NewServeMux()
-
-	// Go 1.22+ supports method routing in the standard library
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
-	})
-	mux.HandleFunc("GET /ready", readyHandler(db))
+	repository, err := session.NewPostgresSessionRepository(db)
+	if err != nil {
+		if db != nil {
+			db.Close()
+		}
+		log.Fatalf("session repository startup failed: %v", err)
+	}
+	sessionService, err := session.NewService(repository, nil)
+	if err != nil {
+		if db != nil {
+			db.Close()
+		}
+		log.Fatalf("session service startup failed: %v", err)
+	}
+	router, err := httpapi.NewRouter(sessionService, readyHandler(db), cfg.FrontendOrigin)
+	if err != nil {
+		if db != nil {
+			db.Close()
+		}
+		log.Fatalf("HTTP router startup failed: %v", err)
+	}
 
 	srv := &http.Server{
 		Addr:    ":" + port,
-		Handler: mux,
+		Handler: router,
 		// Reasonable HTTP server timeouts to prevent slow-client attacks
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,

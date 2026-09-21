@@ -66,3 +66,28 @@ func TestLoad_DatabaseURL_Configured(t *testing.T) {
 		t.Errorf("expected DatabaseURL to be '%s', got '%s'", fakeDSN, cfg.DatabaseURL)
 	}
 }
+
+func TestValidate_FrontendOrigin(t *testing.T) {
+	tests := []struct {
+		name   string
+		origin string
+		valid  bool
+	}{
+		{name: "valid https origin", origin: "https://frontend.example", valid: true},
+		{name: "valid http origin", origin: "http://localhost:3000", valid: true},
+		{name: "missing", origin: "", valid: false},
+		{name: "relative", origin: "/frontend", valid: false},
+		{name: "path", origin: "https://frontend.example/app", valid: false},
+		{name: "query", origin: "https://frontend.example?x=1", valid: false},
+		{name: "unsupported scheme", origin: "ftp://frontend.example", valid: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := (Config{FrontendOrigin: test.origin}).Validate()
+			if (err == nil) != test.valid {
+				t.Fatalf("Validate error = %v; valid = %v", err, test.valid)
+			}
+		})
+	}
+}
