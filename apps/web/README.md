@@ -1,36 +1,29 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ZERO → AI ENGINEER Web
 
-## Getting Started
+The Next.js application provides registration, sign-in, and learner onboarding through the Go API.
 
-First, run the development server:
+## Local development
+
+Run the API on `http://localhost:8080`, then start the web application from this directory:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). The development API proxy forwards `/api/*` requests to `http://localhost:8080`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Vercel deployment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Configure this directory (`apps/web`) as the Vercel project root. Set `API_ORIGIN` in the Vercel project environment to the public HTTPS origin of the Go API. Production builds fail if this setting is missing or is not HTTPS.
 
-## Learn More
+The app proxies `/api/*` through the Vercel origin. This keeps the API session cookie same-origin in the browser, while the Go API must set `WEB_ORIGIN` to the exact Vercel origin and allow that origin through its CORS/Origin policy.
 
-To learn more about Next.js, take a look at the following resources:
+Set the Go API's database URL and session secret in the API host's secret manager. Do not set database credentials or session secrets in Vercel's `NEXT_PUBLIC_*` variables.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Validate before deploying:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run lint
+npx tsc --noEmit
+npm run build
+```

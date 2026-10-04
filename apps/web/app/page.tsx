@@ -4,8 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 
-const apiBaseURL = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080").replace(/\/+$/, "");
-
 type PublicUser = {
   id: string;
   email: string;
@@ -34,7 +32,7 @@ class APIError extends Error {
 }
 
 async function requestJSON(path: string, init: RequestInit = {}): Promise<unknown> {
-  const response = await fetch(`${apiBaseURL}${path}`, {
+  const response = await fetch(path, {
     ...init,
     credentials: "include",
     headers: {
@@ -230,7 +228,7 @@ export default function Home() {
     setBusy(true);
     setMessage("");
     try {
-      const response = await fetch(`${apiBaseURL}/api/v1/auth/logout`, {
+      const response = await fetch("/api/v1/auth/logout", {
         method: "POST",
         credentials: "include",
       });
@@ -339,7 +337,7 @@ export default function Home() {
                   {mode === "login" ? "Create an account" : "Sign in"}
                 </button>
               </p>
-              <p className="privacy-note">Your password is used for this request and is never saved by this page.</p>
+              <p className="privacy-note">Your password is sent to the API for verification; this page does not persist it.</p>
             </div>
           )}
 
