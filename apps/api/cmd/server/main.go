@@ -16,6 +16,7 @@ import (
 	"github.com/zero-to-ai-engineer/api/internal/config"
 	"github.com/zero-to-ai-engineer/api/internal/database"
 	"github.com/zero-to-ai-engineer/api/internal/httpapi"
+	"github.com/zero-to-ai-engineer/api/internal/learner"
 )
 
 func readyHandlerWithPing(pingFn func(context.Context) error) http.HandlerFunc {
@@ -94,7 +95,21 @@ func main() {
 		}
 		log.Fatalf("identity service startup failed: %v", err)
 	}
-	router, err := httpapi.NewRouter(sessionService, identityService, readyHandler(db), cfg.FrontendOrigin)
+	learnerRepository, err := learner.NewPostgresRepository(db.Pool)
+	if err != nil {
+		if db != nil {
+			db.Close()
+		}
+		log.Fatalf("learner repository startup failed: %v", err)
+	}
+	learnerService, err := learner.NewService(learnerRepository)
+	if err != nil {
+		if db != nil {
+			db.Close()
+		}
+		log.Fatalf("learner service startup failed: %v", err)
+	}
+	router, err := httpapi.NewRouter(sessionService, identityService, learnerService, readyHandler(db), cfg.FrontendOrigin)
 	if err != nil {
 		if db != nil {
 			db.Close()

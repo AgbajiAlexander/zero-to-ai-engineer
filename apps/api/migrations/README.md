@@ -22,7 +22,7 @@ export DATABASE_URL="postgres://postgres:postgres@localhost:5432/zero_to_ai_engi
 
 ## Notes
 
-- The migration directory is intentionally kept empty until the first real schema change is ready.
+- Schema changes are tracked as ordered, version-controlled migrations in this directory.
 - No migrations are run automatically when the API starts.
 - Do not commit production credentials or local secrets.
 - Keep the `DATABASE_URL` environment variable in local developer shells or `.env` files that are excluded from source control.

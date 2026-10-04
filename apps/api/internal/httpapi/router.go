@@ -11,28 +11,33 @@ import (
 	"github.com/zero-to-ai-engineer/api/internal/auth/identity"
 	"github.com/zero-to-ai-engineer/api/internal/auth/session"
 	"github.com/zero-to-ai-engineer/api/internal/auth/user"
+	"github.com/zero-to-ai-engineer/api/internal/learner"
 	"github.com/zero-to-ai-engineer/api/internal/middleware"
 )
 
 type Router struct {
 	sessionService  session.Service
 	identityService identity.Service
+	learnerService  learner.Service
 	readyHandler    http.Handler
 	allowedOrigin   string
 	logout          http.Handler
 	register        http.Handler
 	login           http.Handler
 	me              http.Handler
+	learnerMe       http.Handler
+	learnerOnboard  http.Handler
 }
 
 // NewRouter creates the application HTTP boundary without exposing database infrastructure.
-func NewRouter(sessionService session.Service, identityService identity.Service, readyHandler http.Handler, allowedOrigin string) (http.Handler, error) {
-	if sessionService == nil || identityService == nil || readyHandler == nil {
-		return nil, errors.New("httpapi: session service and ready handler are required")
+func NewRouter(sessionService session.Service, identityService identity.Service, learnerService learner.Service, readyHandler http.Handler, allowedOrigin string) (http.Handler, error) {
+	if sessionService == nil || identityService == nil || learnerService == nil || readyHandler == nil {
+		return nil, errors.New("httpapi: session, identity, learner services and ready handler are required")
 	}
 	router := &Router{
 		sessionService:  sessionService,
 		identityService: identityService,
+		learnerService:  learnerService,
 		readyHandler:    readyHandler,
 		allowedOrigin:   allowedOrigin,
 	}
@@ -40,6 +45,8 @@ func NewRouter(sessionService session.Service, identityService identity.Service,
 	router.register = router.buildRegisterHandler()
 	router.login = router.buildLoginHandler()
 	router.me = router.buildMeHandler()
+	router.learnerMe = router.buildLearnerMeHandler()
+	router.learnerOnboard = router.buildLearnerOnboardHandler()
 	return router, nil
 }
 
@@ -93,6 +100,20 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		r.me.ServeHTTP(w, req)
+	case req.URL.Path == "/api/v1/learners/me":
+		if req.Method != http.MethodGet {
+			w.Header().Set("Allow", http.MethodGet)
+			writeJSONError(w, http.StatusMethodNotAllowed, "method_not_allowed")
+			return
+		}
+		r.learnerMe.ServeHTTP(w, req)
+	case req.URL.Path == "/api/v1/learners/onboard":
+		if req.Method != http.MethodPost {
+			w.Header().Set("Allow", http.MethodPost)
+			writeJSONError(w, http.StatusMethodNotAllowed, "method_not_allowed")
+			return
+		}
+		r.learnerOnboard.ServeHTTP(w, req)
 	default:
 		writeJSONError(w, http.StatusNotFound, "not_found")
 	}
@@ -167,6 +188,77 @@ func (r *Router) buildMeHandler() http.Handler {
 	return middleware.SessionAuthentication(r.sessionService, handler)
 }
 
+type learnerRequest struct {
+	DisplayName string `json:"display_name"`
+}
+
+type learnerProfile struct {
+	UserID      string `json:"user_id"`
+	DisplayName string `json:"display_name"`
+}
+
+func (r *Router) buildLearnerMeHandler() http.Handler {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		authenticated, ok := middleware.SessionFromContext(req.Context())
+		if !ok {
+			writeJSONError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		value, err := r.learnerService.GetByUserID(req.Context(), authenticated.UserID)
+		if err != nil {
+			writeLearnerError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]learnerProfile{
+			"learner": {UserID: value.UserID, DisplayName: value.DisplayName},
+		})
+	})
+	return middleware.SessionAuthentication(r.sessionService, handler)
+}
+
+func (r *Router) buildLearnerOnboardHandler() http.Handler {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		authenticated, ok := middleware.SessionFromContext(req.Context())
+		if !ok {
+			writeJSONError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		var input learnerRequest
+		if err := decodeJSON(req, &input); err != nil {
+			writeJSONError(w, http.StatusBadRequest, "invalid_request")
+			return
+		}
+
+		value, err := r.learnerService.Onboard(req.Context(), learner.OnboardInput{
+			UserID:      authenticated.UserID,
+			DisplayName: input.DisplayName,
+		})
+		if err != nil {
+			writeLearnerError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]learnerProfile{
+			"learner": {UserID: value.UserID, DisplayName: value.DisplayName},
+		})
+	})
+	return validateOrigin(r.allowedOrigin, middleware.SessionAuthentication(r.sessionService, handler))
+}
+
+func writeLearnerError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, learner.ErrInvalidInput):
+		writeJSONError(w, http.StatusBadRequest, "invalid_request")
+	case errors.Is(err, learner.ErrLearnerNotFound):
+		writeJSONError(w, http.StatusNotFound, "not_found")
+	case errors.Is(err, learner.ErrLearnerExists):
+		writeJSONError(w, http.StatusConflict, "learner_profile_exists")
+	default:
+		writeJSONError(w, http.StatusInternalServerError, "internal_error")
+	}
+}
+
 func decodeJSON(req *http.Request, value any) error {
 	if req.Body == nil {
 		return errors.New("httpapi: request body is required")
@@ -230,21 +322,33 @@ func validateOrigin(allowedOrigin string, next http.Handler) http.Handler {
 }
 
 func (r *Router) handleOptions(w http.ResponseWriter, req *http.Request) {
-	if req.URL.Path != "/api/v1/auth/logout" && req.URL.Path != "/api/v1/auth/register" && req.URL.Path != "/api/v1/auth/login" {
+	requestedMethod := req.Header.Get("Access-Control-Request-Method")
+	expectedMethod, ok := preflightMethod(req.URL.Path)
+	if !ok {
 		writeJSONError(w, http.StatusNotFound, "not_found")
 		return
 	}
 	origin := req.Header.Get("Origin")
-	requestedMethod := req.Header.Get("Access-Control-Request-Method")
 	requestedHeaders := req.Header.Get("Access-Control-Request-Headers")
-	if r.allowedOrigin == "" || origin != r.allowedOrigin || requestedMethod != http.MethodPost || !allowedPreflightHeaders(requestedHeaders) {
+	if requestedMethod != expectedMethod || r.allowedOrigin == "" || origin != r.allowedOrigin || !allowedPreflightHeaders(requestedHeaders) {
 		writeJSONError(w, http.StatusForbidden, "forbidden")
 		return
 	}
 	r.setCORSHeaders(w, req)
-	w.Header().Set("Access-Control-Allow-Methods", http.MethodPost)
+	w.Header().Set("Access-Control-Allow-Methods", requestedMethod)
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func preflightMethod(path string) (string, bool) {
+	switch path {
+	case "/api/v1/auth/logout", "/api/v1/auth/register", "/api/v1/auth/login", "/api/v1/learners/onboard":
+		return http.MethodPost, true
+	case "/api/v1/learners/me", "/api/v1/me":
+		return http.MethodGet, true
+	default:
+		return "", false
+	}
 }
 
 func allowedPreflightHeaders(value string) bool {

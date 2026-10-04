@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -80,8 +81,34 @@ func TestPostgresRepository(t *testing.T) {
 		DisplayName: "Alice Engineer",
 	}
 
-	if err := repository.Create(ctx, created); err != nil {
-		t.Fatalf("Create returned an unexpected error: %v", err)
+	start := make(chan struct{})
+	createErrors := make(chan error, 2)
+	var createWG sync.WaitGroup
+	for range 2 {
+		createWG.Add(1)
+		go func() {
+			defer createWG.Done()
+			<-start
+			createErrors <- repository.Create(ctx, created)
+		}()
+	}
+	close(start)
+	createWG.Wait()
+	close(createErrors)
+
+	var createdCount, conflictCount int
+	for createErr := range createErrors {
+		switch {
+		case createErr == nil:
+			createdCount++
+		case errors.Is(createErr, ErrLearnerExists):
+			conflictCount++
+		default:
+			t.Fatalf("concurrent Create returned an unexpected error: %v", createErr)
+		}
+	}
+	if createdCount != 1 || conflictCount != 1 {
+		t.Fatalf("concurrent create outcomes = %d created, %d conflicts; want 1 each", createdCount, conflictCount)
 	}
 
 	got, err := repository.FindByUserID(ctx, userID)

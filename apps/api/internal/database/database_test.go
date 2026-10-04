@@ -225,3 +225,101 @@ func TestSessionsSchema_ApprovedMigration(t *testing.T) {
 		}
 	})
 }
+
+func TestLearnersSchema_ApprovedMigration(t *testing.T) {
+	cfg := config.Load()
+	if cfg.DatabaseURL == "" {
+		t.Skip("DATABASE_URL is not configured; skipping integration test")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	db, err := Connect(ctx, cfg)
+	if err != nil {
+		t.Fatalf("Connect returned an unexpected error: %v", err)
+	}
+	defer db.Close()
+
+	var exists bool
+	if err := db.Pool.QueryRow(ctx, "SELECT to_regclass('public.learners') IS NOT NULL").Scan(&exists); err != nil {
+		t.Fatalf("Querying learners existence failed: %v", err)
+	}
+	if !exists {
+		t.Fatal("learners table does not exist")
+	}
+
+	rows, err := db.Pool.Query(ctx, `
+		SELECT column_name, data_type, is_nullable
+		FROM information_schema.columns
+		WHERE table_schema = 'public' AND table_name = 'learners'
+	`)
+	if err != nil {
+		t.Fatalf("Querying learners columns failed: %v", err)
+	}
+	defer rows.Close()
+
+	actual := map[string]struct {
+		dataType string
+		nullable string
+	}{}
+	for rows.Next() {
+		var name, dataType, nullable string
+		if err := rows.Scan(&name, &dataType, &nullable); err != nil {
+			t.Fatalf("Scanning learners columns failed: %v", err)
+		}
+		actual[name] = struct {
+			dataType string
+			nullable string
+		}{dataType: dataType, nullable: nullable}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("Iterating learners columns failed: %v", err)
+	}
+
+	want := map[string]struct {
+		dataType string
+		nullable string
+	}{
+		"user_id":      {dataType: "uuid", nullable: "NO"},
+		"display_name": {dataType: "text", nullable: "NO"},
+		"created_at":   {dataType: "timestamp with time zone", nullable: "NO"},
+		"updated_at":   {dataType: "timestamp with time zone", nullable: "NO"},
+	}
+	if len(actual) != len(want) {
+		t.Fatalf("learners has %d columns; want %d", len(actual), len(want))
+	}
+	for name, expected := range want {
+		column, ok := actual[name]
+		if !ok {
+			t.Fatalf("learners.%s column is missing", name)
+		}
+		if column.dataType != expected.dataType {
+			t.Fatalf("learners.%s has type %q; want %q", name, column.dataType, expected.dataType)
+		}
+		if column.nullable != expected.nullable {
+			t.Fatalf("learners.%s nullability is %q; want %q", name, column.nullable, expected.nullable)
+		}
+	}
+
+	var foreignKeyCount int
+	if err := db.Pool.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM pg_constraint c
+		JOIN pg_class tbl ON tbl.oid = c.conrelid
+		JOIN pg_class ref ON ref.oid = c.confrelid
+		JOIN pg_attribute a ON a.attrelid = tbl.oid AND a.attnum = ANY(c.conkey)
+		JOIN pg_attribute ra ON ra.attrelid = ref.oid AND ra.attnum = ANY(c.confkey)
+		WHERE tbl.relname = 'learners'
+		  AND c.contype = 'f'
+		  AND a.attname = 'user_id'
+		  AND ref.relname = 'users'
+		  AND ra.attname = 'id'
+		  AND c.confdeltype = 'c'
+	`).Scan(&foreignKeyCount); err != nil {
+		t.Fatalf("Querying learners foreign key failed: %v", err)
+	}
+	if foreignKeyCount != 1 {
+		t.Fatalf("expected exactly one cascade foreign key from learners.user_id to users.id, got %d", foreignKeyCount)
+	}
+}
