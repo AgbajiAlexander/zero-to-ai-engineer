@@ -1,0 +1,27 @@
+# Exclude files that do not belong in the Docker build context.
+# This keeps the build context small and prevents accidental secret inclusion.
+
+# Test and coverage output
+*.test
+*.out
+coverage/
+
+# Local development binaries
+bin/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/

@@ -11,6 +11,7 @@ type Config struct {
 	AppEnv         string
 	AppPort        string
 	DatabaseURL    string
+	SessionSecret  string
 	FrontendOrigin string
 }
 
@@ -33,6 +34,15 @@ func Load() Config {
 		cfg.DatabaseURL = dbURL
 	}
 
+	if secret := os.Getenv("SESSION_SECRET"); secret != "" {
+		cfg.SessionSecret = secret
+	}
+
+	// WEB_ORIGIN is the canonical name used in .env / docker-compose.
+	// FRONTEND_ORIGIN is accepted as an alias for backwards compatibility.
+	if origin := os.Getenv("WEB_ORIGIN"); origin != "" {
+		cfg.FrontendOrigin = origin
+	}
 	if origin := os.Getenv("FRONTEND_ORIGIN"); origin != "" {
 		cfg.FrontendOrigin = origin
 	}
@@ -43,15 +53,20 @@ func Load() Config {
 // Validate checks configuration required by the HTTP authentication boundary.
 func (cfg Config) Validate() error {
 	if cfg.FrontendOrigin == "" {
-		return errors.New("config: FRONTEND_ORIGIN is required")
+		return errors.New("config: WEB_ORIGIN is required")
 	}
 
 	parsed, err := url.Parse(cfg.FrontendOrigin)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" || parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return errors.New("config: FRONTEND_ORIGIN must be an absolute HTTP(S) origin")
+		return errors.New("config: WEB_ORIGIN must be an absolute HTTP(S) origin")
 	}
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return errors.New("config: FRONTEND_ORIGIN must use http or https")
+		return errors.New("config: WEB_ORIGIN must use http or https")
 	}
+
+	if len(cfg.SessionSecret) < 32 {
+		return errors.New("config: SESSION_SECRET must be at least 32 characters")
+	}
+
 	return nil
 }

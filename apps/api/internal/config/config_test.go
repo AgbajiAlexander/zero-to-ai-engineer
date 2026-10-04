@@ -5,12 +5,13 @@ import (
 )
 
 func TestLoad_Defaults(t *testing.T) {
-	// Set the environment variables to empty strings to trigger the default values.
-	// t.Setenv automatically restores the original environment state after the test completes,
-	// ensuring tests do not affect one another.
+	// t.Setenv automatically restores the original environment state after the test completes.
 	t.Setenv("APP_ENV", "")
 	t.Setenv("APP_PORT", "")
 	t.Setenv("DATABASE_URL", "")
+	t.Setenv("SESSION_SECRET", "")
+	t.Setenv("WEB_ORIGIN", "")
+	t.Setenv("FRONTEND_ORIGIN", "")
 
 	cfg := Load()
 
@@ -22,16 +23,24 @@ func TestLoad_Defaults(t *testing.T) {
 		t.Errorf("expected AppPort to be '8080', got '%s'", cfg.AppPort)
 	}
 
-	// When DATABASE_URL is not set, DatabaseURL should be an empty string.
 	if cfg.DatabaseURL != "" {
 		t.Errorf("expected DatabaseURL to be empty, got '%s'", cfg.DatabaseURL)
+	}
+
+	if cfg.SessionSecret != "" {
+		t.Errorf("expected SessionSecret to be empty, got '%s'", cfg.SessionSecret)
+	}
+
+	if cfg.FrontendOrigin != "" {
+		t.Errorf("expected FrontendOrigin to be empty, got '%s'", cfg.FrontendOrigin)
 	}
 }
 
 func TestLoad_ConfiguredValues(t *testing.T) {
-	// Set custom environment variables.
 	t.Setenv("APP_ENV", "production")
 	t.Setenv("APP_PORT", "9090")
+	t.Setenv("SESSION_SECRET", "a-very-long-random-secret-value-here-for-testing")
+	t.Setenv("WEB_ORIGIN", "https://app.example.com")
 
 	cfg := Load()
 
@@ -42,10 +51,17 @@ func TestLoad_ConfiguredValues(t *testing.T) {
 	if cfg.AppPort != "9090" {
 		t.Errorf("expected AppPort to be '9090', got '%s'", cfg.AppPort)
 	}
+
+	if cfg.SessionSecret != "a-very-long-random-secret-value-here-for-testing" {
+		t.Errorf("expected SessionSecret to be set, got '%s'", cfg.SessionSecret)
+	}
+
+	if cfg.FrontendOrigin != "https://app.example.com" {
+		t.Errorf("expected FrontendOrigin to be 'https://app.example.com', got '%s'", cfg.FrontendOrigin)
+	}
 }
 
 func TestLoad_DatabaseURL_NotSet(t *testing.T) {
-	// When DATABASE_URL is absent, DatabaseURL must be an empty string.
 	t.Setenv("DATABASE_URL", "")
 
 	cfg := Load()
@@ -67,6 +83,40 @@ func TestLoad_DatabaseURL_Configured(t *testing.T) {
 	}
 }
 
+// validSecret is long enough to satisfy the SESSION_SECRET ≥ 32 character requirement.
+const validSecret = "test-secret-that-is-at-least-32-chars-long"
+
+func TestLoad_WebOriginAlias(t *testing.T) {
+	t.Setenv("WEB_ORIGIN", "http://localhost:3000")
+	t.Setenv("FRONTEND_ORIGIN", "")
+
+	cfg := Load()
+	if cfg.FrontendOrigin != "http://localhost:3000" {
+		t.Errorf("expected FrontendOrigin to be set from WEB_ORIGIN, got '%s'", cfg.FrontendOrigin)
+	}
+}
+
+func TestLoad_FrontendOriginAlias(t *testing.T) {
+	t.Setenv("WEB_ORIGIN", "")
+	t.Setenv("FRONTEND_ORIGIN", "http://localhost:3000")
+
+	cfg := Load()
+	if cfg.FrontendOrigin != "http://localhost:3000" {
+		t.Errorf("expected FrontendOrigin to be set from FRONTEND_ORIGIN alias, got '%s'", cfg.FrontendOrigin)
+	}
+}
+
+func TestLoad_FrontendOriginTakesPrecedenceOverWebOrigin(t *testing.T) {
+	t.Setenv("WEB_ORIGIN", "http://localhost:3000")
+	t.Setenv("FRONTEND_ORIGIN", "http://localhost:4000")
+
+	cfg := Load()
+	// FRONTEND_ORIGIN is processed last so it wins.
+	if cfg.FrontendOrigin != "http://localhost:4000" {
+		t.Errorf("expected FRONTEND_ORIGIN to take precedence, got '%s'", cfg.FrontendOrigin)
+	}
+}
+
 func TestValidate_FrontendOrigin(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -84,9 +134,32 @@ func TestValidate_FrontendOrigin(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			err := (Config{FrontendOrigin: test.origin}).Validate()
+			err := (Config{FrontendOrigin: test.origin, SessionSecret: validSecret}).Validate()
 			if (err == nil) != test.valid {
 				t.Fatalf("Validate error = %v; valid = %v", err, test.valid)
+			}
+		})
+	}
+}
+
+func TestValidate_SessionSecret(t *testing.T) {
+	tests := []struct {
+		name   string
+		secret string
+		valid  bool
+	}{
+		{name: "exactly 32 chars", secret: "12345678901234567890123456789012", valid: true},
+		{name: "more than 32 chars", secret: validSecret, valid: true},
+		{name: "31 chars", secret: "1234567890123456789012345678901", valid: false},
+		{name: "empty", secret: "", valid: false},
+	}
+
+	validOrigin := "http://localhost:3000"
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := (Config{FrontendOrigin: validOrigin, SessionSecret: test.secret}).Validate()
+			if (err == nil) != test.valid {
+				t.Fatalf("Validate(SessionSecret=%q) error = %v; valid = %v", test.secret, err, test.valid)
 			}
 		})
 	}

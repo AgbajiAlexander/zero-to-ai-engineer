@@ -318,33 +318,25 @@ After each meaningful change:
 
 Current stage:
 
-Architecture completed through ADR-017.
+The Go API foundation, PostgreSQL migrations, authentication, and learner onboarding API are implemented. The Next.js application now provides the initial registration, sign-in, and learner-onboarding flow against those API contracts.
 
-Current implementation stage:
+Curriculum implementation is blocked until the referenced ADR-014 — Curriculum Content Architecture — is present and accepted in the repository. ADR-013 — Frontend Architecture & UX System — is also referenced by `AGENTS.md` but is not currently present.
 
-Repository foundation.
+The remaining implementation sequence follows the approved architecture and depends on the missing curriculum, assessment, evidence, progression, AI, sandbox, collaboration, project, frontend, and deployment decisions where applicable:
 
-The next implementation milestones are:
-
-1. Repository foundation
-2. Go API foundation
-3. PostgreSQL and migrations
-4. Docker development environment
-5. Authentication
-6. Learner onboarding
-7. Curriculum
-8. Missions
-9. Assessment and submissions
-10. Evidence and evaluation
-11. Mastery Engine
-12. Adaptive Roadmap
-13. Rewards and streaks
-14. AI Mentor
-15. Secure sandbox
-16. Collaboration
-17. Projects
-18. Complete frontend experience
-19. Security and production hardening
-20. Staging and production deployment
+1. Curriculum
+2. Missions
+3. Assessment and submissions
+4. Evidence and evaluation
+5. Mastery Engine
+6. Adaptive Roadmap
+7. Rewards and streaks
+8. AI Mentor
+9. Secure sandbox
+10. Collaboration
+11. Projects
+12. Complete frontend experience
+13. Security and production hardening
+14. Staging and production deployment
 
 This README describes the approved project direction and must not be treated as permission to redesign the architecture.
