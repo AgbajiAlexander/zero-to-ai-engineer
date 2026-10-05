@@ -17,6 +17,7 @@ import (
 	"github.com/zero-to-ai-engineer/api/internal/database"
 	"github.com/zero-to-ai-engineer/api/internal/httpapi"
 	"github.com/zero-to-ai-engineer/api/internal/learner"
+	"github.com/zero-to-ai-engineer/api/internal/middleware"
 )
 
 func readyHandlerWithPing(pingFn func(context.Context) error) http.HandlerFunc {
@@ -119,7 +120,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    ":" + port,
-		Handler: router,
+		Handler: middleware.SecurityHeaders(router),
 		// Reasonable HTTP server timeouts to prevent slow-client attacks
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,

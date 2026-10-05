@@ -30,16 +30,18 @@ run: ## Run the Go API locally (reads .env)
 	  go run ./cmd/server
 
 .PHONY: test
-test: ## Run all Go tests (short mode — skips integration tests)
-	cd $(API_DIR) && go test -short -count=1 ./...
+test: ## Run Go unit/API tests; PostgreSQL integration tests are disabled
+	cd $(API_DIR) && RUN_DB_INTEGRATION_TESTS= go test -short -count=1 ./...
 
-.PHONY: test-all
-test-all: ## Run all Go tests including integration tests (requires DATABASE_URL)
-	cd $(API_DIR) && go test -count=1 ./...
+.PHONY: test-integration test-all
+test-integration: ## Run PostgreSQL integration tests (requires isolated non-production DATABASE_URL)
+	cd $(API_DIR) && RUN_DB_INTEGRATION_TESTS=1 go test -count=1 ./...
+
+test-all: test-integration ## Alias for test-integration; requires an isolated non-production database
 
 .PHONY: test-race
 test-race: ## Run all Go tests with the race detector
-	cd $(API_DIR) && go test -race -short -count=1 ./...
+	cd $(API_DIR) && RUN_DB_INTEGRATION_TESTS= go test -race -short -count=1 ./...
 
 .PHONY: fmt
 fmt: ## Format all Go source files

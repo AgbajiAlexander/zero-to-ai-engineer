@@ -128,6 +128,107 @@ func TestRouter_HealthAndReady(t *testing.T) {
 	}
 }
 
+func TestRouter_SecurityHeadersCoverResponseTypes(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		setup  func(*http.Request)
+		status int
+	}{
+		{name: "successful health response", method: http.MethodGet, path: "/health", status: http.StatusOK},
+		{name: "readiness response", method: http.MethodGet, path: "/ready", status: http.StatusOK},
+		{name: "unauthenticated response", method: http.MethodGet, path: "/api/v1/me", status: http.StatusUnauthorized},
+		{name: "method not allowed response", method: http.MethodGet, path: "/api/v1/auth/logout", status: http.StatusMethodNotAllowed},
+		{name: "not found response", method: http.MethodGet, path: "/not-found", status: http.StatusNotFound},
+		{
+			name:   "trusted preflight response",
+			method: http.MethodOptions,
+			path:   "/api/v1/auth/register",
+			status: http.StatusNoContent,
+			setup: func(req *http.Request) {
+				req.Header.Set("Origin", "https://frontend.example")
+				req.Header.Set("Access-Control-Request-Method", http.MethodPost)
+				req.Header.Set("Access-Control-Request-Headers", "Content-Type")
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			handler := middleware.SecurityHeaders(newTestRouter(t, &fakeService{}))
+			req := httptest.NewRequest(test.method, test.path, nil)
+			if test.setup != nil {
+				test.setup(req)
+			}
+			recorder := httptest.NewRecorder()
+
+			handler.ServeHTTP(recorder, req)
+
+			if recorder.Code != test.status {
+				t.Fatalf("status = %d; want %d", recorder.Code, test.status)
+			}
+			assertSecurityHeaders(t, recorder)
+
+			switch test.name {
+			case "unauthenticated response":
+				if recorder.Header().Get("Content-Type") != "application/json" ||
+					recorder.Body.String() != "{\"error\":\"unauthorized\"}\n" {
+					t.Fatalf("unauthenticated response changed: content type %q, body %q",
+						recorder.Header().Get("Content-Type"), recorder.Body.String())
+				}
+			case "method not allowed response":
+				if recorder.Header().Get("Allow") != http.MethodPost {
+					t.Fatalf("Allow = %q; want %q", recorder.Header().Get("Allow"), http.MethodPost)
+				}
+			case "trusted preflight response":
+				headers := recorder.Header()
+				if headers.Get("Access-Control-Allow-Origin") != "https://frontend.example" ||
+					headers.Get("Access-Control-Allow-Credentials") != "true" ||
+					headers.Get("Access-Control-Allow-Methods") != http.MethodPost ||
+					headers.Get("Access-Control-Allow-Headers") != "Content-Type" {
+					t.Fatalf("CORS headers changed: %#v", headers)
+				}
+			}
+		})
+	}
+}
+
+func TestSecurityHeadersPreserveCookiesAndExistingHeaders(t *testing.T) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "https://frontend.example")
+		w.Header().Set("Content-Type", "application/json")
+		http.SetCookie(w, &http.Cookie{Name: "session", Value: "opaque"})
+		w.WriteHeader(http.StatusNoContent)
+	})
+	recorder := httptest.NewRecorder()
+
+	middleware.SecurityHeaders(next).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	cookies := recorder.Result().Cookies()
+	if recorder.Code != http.StatusNoContent ||
+		recorder.Header().Get("Access-Control-Allow-Origin") != "https://frontend.example" ||
+		recorder.Header().Get("Content-Type") != "application/json" ||
+		len(cookies) != 1 || cookies[0].Name != "session" {
+		t.Fatalf("existing response headers changed: status=%d headers=%#v",
+			recorder.Code, recorder.Header())
+	}
+	assertSecurityHeaders(t, recorder)
+}
+
+func assertSecurityHeaders(t *testing.T, recorder *httptest.ResponseRecorder) {
+	t.Helper()
+	for name, want := range map[string]string{
+		"X-Content-Type-Options": "nosniff",
+		"X-Frame-Options":        "DENY",
+		"Referrer-Policy":        "no-referrer",
+	} {
+		if got := recorder.Header().Get(name); got != want {
+			t.Errorf("%s = %q; want %q", name, got, want)
+		}
+	}
+}
+
 func TestRouter_Logout(t *testing.T) {
 	tests := []struct {
 		name          string

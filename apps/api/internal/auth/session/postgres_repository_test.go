@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -14,10 +15,8 @@ import (
 )
 
 func TestPostgresSessionRepository(t *testing.T) {
+	requirePostgresIntegration(t)
 	cfg := config.Load()
-	if cfg.DatabaseURL == "" {
-		t.Skip("DATABASE_URL is not configured; skipping integration test")
-	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
@@ -165,6 +164,16 @@ func TestPostgresSessionRepository(t *testing.T) {
 			t.Fatal("CreateSession accepted a duplicate token hash")
 		}
 	})
+}
+
+func requirePostgresIntegration(t *testing.T) {
+	t.Helper()
+	if os.Getenv("RUN_DB_INTEGRATION_TESTS") != "1" {
+		t.Skip("set RUN_DB_INTEGRATION_TESTS=1 to run PostgreSQL integration tests against an isolated non-production database")
+	}
+	if os.Getenv("DATABASE_URL") == "" {
+		t.Fatal("PostgreSQL integration tests require DATABASE_URL for an isolated non-production database")
+	}
 }
 
 func testSession(t *testing.T, userID, label string) Session {
