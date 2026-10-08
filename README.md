@@ -157,6 +157,12 @@ AI is accessed through a server-side AI Gateway.
 - Managed PostgreSQL
 - Isolated sandbox workers for learner code execution
 
+To deploy the Go API to Railway from the repository root, the root `Dockerfile`
+builds the service from `apps/api`. Keep the Railway service root directory at
+the repository root, and leave its custom start command empty so the image's
+`/server` entrypoint is used. Configure `DATABASE_URL`, `SESSION_SECRET`, and
+`WEB_ORIGIN` in Railway's service variables; set `APP_ENV=production`.
+
 ## Architecture
 
 The high-level architecture is:
