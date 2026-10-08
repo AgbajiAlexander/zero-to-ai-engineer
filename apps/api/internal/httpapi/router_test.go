@@ -128,6 +128,113 @@ func TestRouter_HealthAndReady(t *testing.T) {
 	}
 }
 
+func TestRouter_CurriculumRequiresAuthentication(t *testing.T) {
+	for _, path := range []string{
+		"/api/v1/curriculum",
+		"/api/v1/curriculum/1.0.0",
+	} {
+		t.Run(path, func(t *testing.T) {
+			router := newTestRouter(t, &fakeService{})
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			recorder := httptest.NewRecorder()
+
+			router.ServeHTTP(recorder, req)
+			if recorder.Code != http.StatusUnauthorized {
+				t.Fatalf("status = %d; want %d", recorder.Code, http.StatusUnauthorized)
+			}
+			if recorder.Header().Get("Cache-Control") != "" {
+				t.Fatalf("unauthenticated response is cacheable: %q", recorder.Header().Get("Cache-Control"))
+			}
+		})
+	}
+}
+
+func TestRouter_CurriculumCurrentAndVersionedResponses(t *testing.T) {
+	tests := []struct {
+		name         string
+		path         string
+		cacheControl string
+	}{
+		{
+			name:         "current curriculum",
+			path:         "/api/v1/curriculum",
+			cacheControl: "private, max-age=300",
+		},
+		{
+			name:         "versioned curriculum",
+			path:         "/api/v1/curriculum/1.0.0",
+			cacheControl: "private, max-age=300, immutable",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			service := &fakeService{authenticated: session.Session{ID: "session-id", UserID: "user-id"}}
+			router := newTestRouter(t, service)
+			req := httptest.NewRequest(http.MethodGet, test.path, nil)
+			req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: "raw-token"})
+			recorder := httptest.NewRecorder()
+
+			router.ServeHTTP(recorder, req)
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("status = %d; want %d: %s", recorder.Code, http.StatusOK, recorder.Body.String())
+			}
+			if got := recorder.Header().Get("Cache-Control"); got != test.cacheControl {
+				t.Errorf("Cache-Control = %q; want %q", got, test.cacheControl)
+			}
+			if !strings.Contains(recorder.Body.String(), `"version":"1.0.0"`) ||
+				!strings.Contains(recorder.Body.String(), `"computational-thinking.decompose-problems"`) {
+				t.Errorf("curriculum response is missing the version or starter skill: %s", recorder.Body.String())
+			}
+		})
+	}
+}
+
+func TestRouter_CurriculumRejectsUnknownVersionsAndMethods(t *testing.T) {
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		status int
+		allow  string
+	}{
+		{
+			name:   "unknown version",
+			method: http.MethodGet,
+			path:   "/api/v1/curriculum/9.9.9",
+			status: http.StatusNotFound,
+		},
+		{
+			name:   "nested version path",
+			method: http.MethodGet,
+			path:   "/api/v1/curriculum/1.0.0/extra",
+			status: http.StatusNotFound,
+		},
+		{
+			name:   "write method",
+			method: http.MethodPost,
+			path:   "/api/v1/curriculum",
+			status: http.StatusMethodNotAllowed,
+			allow:  http.MethodGet,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			router := newTestRouter(t, &fakeService{authenticated: session.Session{ID: "session-id", UserID: "user-id"}})
+			req := httptest.NewRequest(test.method, test.path, nil)
+			req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: "raw-token"})
+			recorder := httptest.NewRecorder()
+
+			router.ServeHTTP(recorder, req)
+			if recorder.Code != test.status {
+				t.Fatalf("status = %d; want %d", recorder.Code, test.status)
+			}
+			if test.allow != "" && recorder.Header().Get("Allow") != test.allow {
+				t.Errorf("Allow = %q; want %q", recorder.Header().Get("Allow"), test.allow)
+			}
+		})
+	}
+}
+
 func TestRouter_SecurityHeadersCoverResponseTypes(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -435,6 +542,8 @@ func TestRouter_PreflightIncludesIdentityRoutes(t *testing.T) {
 		{path: "/api/v1/auth/logout", method: http.MethodPost},
 		{path: "/api/v1/learners/onboard", method: http.MethodPost},
 		{path: "/api/v1/learners/me", method: http.MethodGet},
+		{path: "/api/v1/curriculum", method: http.MethodGet},
+		{path: "/api/v1/curriculum/1.0.0", method: http.MethodGet},
 	}
 	for _, test := range tests {
 		t.Run(test.path, func(t *testing.T) {

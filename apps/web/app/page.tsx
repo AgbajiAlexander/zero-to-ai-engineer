@@ -15,11 +15,35 @@ type LearnerProfile = {
   display_name: string;
 };
 
+type CurriculumSkill = {
+  id: string;
+  title: string;
+  objectives: string[];
+  prerequisites: string[];
+};
+
+type Curriculum = {
+  schema_version: number;
+  version: string;
+  title: string;
+  skills: CurriculumSkill[];
+  milestones: {
+    id: string;
+    title: string;
+    skill_ids: string[];
+  }[];
+  activities: {
+    id: string;
+    kind: string;
+    skill_ids: string[];
+  }[];
+};
+
 type Screen =
   | { kind: "loading" }
   | { kind: "auth"; notice?: string }
   | { kind: "onboarding"; user: PublicUser }
-  | { kind: "ready"; user: PublicUser; learner: LearnerProfile }
+  | { kind: "ready"; user: PublicUser; learner: LearnerProfile; curriculum: Curriculum }
   | { kind: "error"; message: string };
 
 class APIError extends Error {
@@ -107,12 +131,99 @@ function readLearner(payload: unknown): LearnerProfile {
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item: unknown) => typeof item === "string");
+}
+
+function readSkill(payload: unknown): CurriculumSkill {
+  if (
+    !isRecord(payload) ||
+    typeof payload.id !== "string" ||
+    typeof payload.title !== "string" ||
+    !isStringArray(payload.objectives) ||
+    !isStringArray(payload.prerequisites)
+  ) {
+    throw new Error("The API returned an invalid curriculum response.");
+  }
+  return {
+    id: payload.id,
+    title: payload.title,
+    objectives: payload.objectives,
+    prerequisites: payload.prerequisites,
+  };
+}
+
+function readMilestone(payload: unknown): Curriculum["milestones"][number] {
+  if (
+    !isRecord(payload) ||
+    typeof payload.id !== "string" ||
+    typeof payload.title !== "string" ||
+    !isStringArray(payload.skill_ids)
+  ) {
+    throw new Error("The API returned an invalid curriculum response.");
+  }
+  return { id: payload.id, title: payload.title, skill_ids: payload.skill_ids };
+}
+
+function readActivity(payload: unknown): Curriculum["activities"][number] {
+  if (
+    !isRecord(payload) ||
+    typeof payload.id !== "string" ||
+    typeof payload.kind !== "string" ||
+    !isStringArray(payload.skill_ids)
+  ) {
+    throw new Error("The API returned an invalid curriculum response.");
+  }
+  return { id: payload.id, kind: payload.kind, skill_ids: payload.skill_ids };
+}
+
+function readArray<T>(payload: unknown, readItem: (item: unknown) => T): T[] {
+  if (!Array.isArray(payload)) {
+    throw new Error("The API returned an invalid curriculum response.");
+  }
+  return payload.map(readItem);
+}
+
+function readCurriculum(payload: unknown): Curriculum {
+  if (
+    !isRecord(payload) ||
+    payload.schema_version !== 1 ||
+    typeof payload.version !== "string" ||
+    typeof payload.title !== "string"
+  ) {
+    throw new Error("The API returned an invalid curriculum response.");
+  }
+
+  const curriculum: Curriculum = {
+    schema_version: payload.schema_version,
+    version: payload.version,
+    title: payload.title,
+    skills: readArray(payload.skills, readSkill),
+    milestones: readArray(payload.milestones, readMilestone),
+    activities: readArray(payload.activities, readActivity),
+  };
+  const skillIDs = new Set(curriculum.skills.map((skill) => skill.id));
+  if (
+    curriculum.milestones.some((milestone) => milestone.skill_ids.some((skillID) => !skillIDs.has(skillID))) ||
+    curriculum.skills.some((skill) => skill.prerequisites.some((skillID) => !skillIDs.has(skillID))) ||
+    curriculum.activities.some((activity) => activity.skill_ids.some((skillID) => !skillIDs.has(skillID)))
+  ) {
+    throw new Error("The API returned an invalid curriculum response.");
+  }
+  return curriculum;
+}
+
 async function loadAuthenticatedScreen(): Promise<Screen> {
   const user = readPublicUser(await requestJSON("/api/v1/me"));
 
   try {
     const learner = readLearner(await requestJSON("/api/v1/learners/me"));
-    return { kind: "ready", user, learner };
+    const curriculum = readCurriculum(await requestJSON("/api/v1/curriculum"));
+    return { kind: "ready", user, learner, curriculum };
   } catch (error) {
     if (error instanceof APIError && error.status === 404) {
       return { kind: "onboarding", user };
@@ -385,6 +496,44 @@ export default function Home() {
                 </span>
                 <span className="profile-status">ACTIVE</span>
               </div>
+              <section className="curriculum-section" aria-labelledby="curriculum-title">
+                <div className="curriculum-heading">
+                  <div>
+                    <p className="eyebrow">YOUR CURRICULUM</p>
+                    <h3 id="curriculum-title">{screen.curriculum.title}</h3>
+                  </div>
+                  <span className="curriculum-version">v{screen.curriculum.version}</span>
+                </div>
+                {screen.curriculum.milestones.map((milestone) => (
+                  <section className="curriculum-milestone" key={milestone.id}>
+                    <h4>{milestone.title}</h4>
+                    <ol className="curriculum-skills">
+                      {milestone.skill_ids.map((skillID, index) => {
+                        const skill = screen.curriculum.skills.find((item) => item.id === skillID);
+                        if (!skill) return null;
+                        return (
+                          <li className="curriculum-skill" key={skill.id}>
+                            <span className="curriculum-skill-number">{String(index + 1).padStart(2, "0")}</span>
+                            <div>
+                              <h5>{skill.title}</h5>
+                              <ul className="curriculum-objectives">
+                                {skill.objectives.map((objective) => <li key={objective}>{objective}</li>)}
+                              </ul>
+                              {skill.prerequisites.length > 0 && (
+                                <small>
+                                  Builds on: {skill.prerequisites
+                                    .map((id) => screen.curriculum.skills.find((item) => item.id === id)?.title ?? id)
+                                    .join(", ")}
+                                </small>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </section>
+                ))}
+              </section>
               {message && <p className="form-message" role="alert">{message}</p>}
               <button className="button button-secondary" disabled={busy} onClick={signOut} type="button">
                 {busy ? "Signing out…" : "Sign out"}

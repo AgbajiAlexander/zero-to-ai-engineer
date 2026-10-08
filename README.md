@@ -326,11 +326,19 @@ Current stage:
 
 The Go API foundation, PostgreSQL migrations, authentication, and learner onboarding API are implemented. The Next.js application now provides the initial registration, sign-in, and learner-onboarding flow against those API contracts.
 
-Curriculum implementation is blocked until the referenced ADR-014 — Curriculum Content Architecture — is present and accepted in the repository. ADR-013 — Frontend Architecture & UX System — is also referenced by `AGENTS.md` but is not currently present.
+ADR-013 — Frontend Architecture & UX System — and ADR-014 — Curriculum Content
+Architecture — are accepted. The Go API now embeds a versioned starter
+curriculum, validates its skill graph, and serves it through authenticated
+read-only current/versioned API routes. The learner-facing curriculum screen
+and assignment remain ahead; ADR-015 and ADR-016 are also referenced by
+`AGENTS.md` but are not currently present, so assessment, evidence, mastery,
+and adaptive progression remain blocked on those decisions.
 
-The remaining implementation sequence follows the approved architecture and depends on the missing curriculum, assessment, evidence, progression, AI, sandbox, collaboration, project, frontend, and deployment decisions where applicable:
+The remaining implementation sequence must follow the approved architecture.
+Assessment, evidence, and progression work require the applicable ADRs
+referenced in `AGENTS.md` to be present and accepted.
 
-1. Curriculum
+1. Learner-facing curriculum experience and content expansion
 2. Missions
 3. Assessment and submissions
 4. Evidence and evaluation

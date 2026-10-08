@@ -410,6 +410,104 @@ h2 {
   font-size: 8px;
 }
 
+.curriculum-section {
+  margin-top: 28px;
+  padding-top: 23px;
+  border-top: 1px solid var(--line);
+}
+
+.curriculum-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.curriculum-heading .eyebrow {
+  margin: 0 0 7px;
+}
+
+.curriculum-heading h3 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+}
+
+.curriculum-version {
+  flex: 0 0 auto;
+  padding: 5px 7px;
+  border-radius: 4px;
+  background: #edf4ed;
+  color: var(--green-dark);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.curriculum-milestone {
+  margin-top: 20px;
+}
+
+.curriculum-milestone h4 {
+  margin: 0 0 12px;
+  color: var(--green-dark);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.curriculum-skills {
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+  list-style: none;
+}
+
+.curriculum-skill {
+  display: grid;
+  grid-template-columns: 27px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+}
+
+.curriculum-skill-number {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dce7dd;
+  border-radius: 50%;
+  color: var(--green);
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.curriculum-skill h5 {
+  margin: 2px 0 4px;
+  font-size: 11px;
+}
+
+.curriculum-objectives {
+  margin: 0;
+  padding-left: 14px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.curriculum-objectives li + li {
+  margin-top: 4px;
+}
+
+.curriculum-skill small {
+  margin-top: 5px;
+  display: block;
+  color: #77827c;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
 .signout-button {
   margin-top: 21px;
   font-size: 11px;

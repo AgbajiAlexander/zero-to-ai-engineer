@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "version": "1.0.0",
+  "title": "ZERO to AI Engineer",
+  "skills": [
+    {
+      "id": "computational-thinking.decompose-problems",
+      "title": "Decompose problems",
+      "objectives": [
+        "Break a problem into smaller tasks with clear inputs and outputs.",
+        "Explain how solving the smaller tasks contributes to the original goal."
+      ],
+      "prerequisites": []
+    },
+    {
+      "id": "computational-thinking.recognise-patterns",
+      "title": "Recognise patterns",
+      "objectives": [
+        "Compare examples and identify repeated structures or rules.",
+        "Use a discovered pattern to describe how a new example may behave."
+      ],
+      "prerequisites": []
+    },
+    {
+      "id": "computational-thinking.abstract-details",
+      "title": "Abstract relevant details",
+      "objectives": [
+        "Separate information relevant to a stated goal from irrelevant detail.",
+        "Represent a problem using only the information needed to solve it."
+      ],
+      "prerequisites": [
+        "computational-thinking.decompose-problems"
+      ]
+    },
+    {
+      "id": "computational-thinking.design-algorithms",
+      "title": "Design step-by-step algorithms",
+      "objectives": [
+        "Write an ordered set of unambiguous steps that solves a defined problem.",
+        "Trace the steps against an example input and identify the expected output."
+      ],
+      "prerequisites": [
+        "computational-thinking.decompose-problems",
+        "computational-thinking.recognise-patterns",
+        "computational-thinking.abstract-details"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "computational-thinking",
+      "title": "Computational Thinking",
+      "skill_ids": [
+        "computational-thinking.decompose-problems",
+        "computational-thinking.recognise-patterns",
+        "computational-thinking.abstract-details",
+        "computational-thinking.design-algorithms"
+      ]
+    }
+  ],
+  "activities": []
+}

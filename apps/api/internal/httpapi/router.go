@@ -3,11 +3,13 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/zero-to-ai-engineer/api/content/curriculum"
 	"github.com/zero-to-ai-engineer/api/internal/auth/identity"
 	"github.com/zero-to-ai-engineer/api/internal/auth/session"
 	"github.com/zero-to-ai-engineer/api/internal/auth/user"
@@ -16,17 +18,20 @@ import (
 )
 
 type Router struct {
-	sessionService  session.Service
-	identityService identity.Service
-	learnerService  learner.Service
-	readyHandler    http.Handler
-	allowedOrigin   string
-	logout          http.Handler
-	register        http.Handler
-	login           http.Handler
-	me              http.Handler
-	learnerMe       http.Handler
-	learnerOnboard  http.Handler
+	sessionService    session.Service
+	identityService   identity.Service
+	learnerService    learner.Service
+	curriculum        curriculum.Curriculum
+	readyHandler      http.Handler
+	allowedOrigin     string
+	logout            http.Handler
+	register          http.Handler
+	login             http.Handler
+	me                http.Handler
+	learnerMe         http.Handler
+	learnerOnboard    http.Handler
+	curriculumCurrent http.Handler
+	curriculumVersion http.Handler
 }
 
 // NewRouter creates the application HTTP boundary without exposing database infrastructure.
@@ -34,10 +39,15 @@ func NewRouter(sessionService session.Service, identityService identity.Service,
 	if sessionService == nil || identityService == nil || learnerService == nil || readyHandler == nil {
 		return nil, errors.New("httpapi: session, identity, learner services and ready handler are required")
 	}
+	content, err := curriculum.Default()
+	if err != nil {
+		return nil, fmt.Errorf("httpapi: load curriculum content: %w", err)
+	}
 	router := &Router{
 		sessionService:  sessionService,
 		identityService: identityService,
 		learnerService:  learnerService,
+		curriculum:      content,
 		readyHandler:    readyHandler,
 		allowedOrigin:   allowedOrigin,
 	}
@@ -47,6 +57,8 @@ func NewRouter(sessionService session.Service, identityService identity.Service,
 	router.me = router.buildMeHandler()
 	router.learnerMe = router.buildLearnerMeHandler()
 	router.learnerOnboard = router.buildLearnerOnboardHandler()
+	router.curriculumCurrent = router.buildCurriculumHandler(false)
+	router.curriculumVersion = router.buildCurriculumHandler(true)
 	return router, nil
 }
 
@@ -114,6 +126,20 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		r.learnerOnboard.ServeHTTP(w, req)
+	case req.URL.Path == "/api/v1/curriculum":
+		if req.Method != http.MethodGet {
+			w.Header().Set("Allow", http.MethodGet)
+			writeJSONError(w, http.StatusMethodNotAllowed, "method_not_allowed")
+			return
+		}
+		r.curriculumCurrent.ServeHTTP(w, req)
+	case strings.HasPrefix(req.URL.Path, "/api/v1/curriculum/"):
+		if req.Method != http.MethodGet {
+			w.Header().Set("Allow", http.MethodGet)
+			writeJSONError(w, http.StatusMethodNotAllowed, "method_not_allowed")
+			return
+		}
+		r.curriculumVersion.ServeHTTP(w, req)
 	default:
 		writeJSONError(w, http.StatusNotFound, "not_found")
 	}
@@ -310,6 +336,24 @@ func (r *Router) buildLogoutHandler() http.Handler {
 	return validateOrigin(r.allowedOrigin, middleware.SessionAuthentication(r.sessionService, handler))
 }
 
+func (r *Router) buildCurriculumHandler(versionFromPath bool) http.Handler {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		cacheControl := "private, max-age=300"
+		if versionFromPath {
+			version := strings.TrimPrefix(req.URL.Path, "/api/v1/curriculum/")
+			if version == "" || strings.Contains(version, "/") || version != r.curriculum.Version {
+				writeJSONError(w, http.StatusNotFound, "not_found")
+				return
+			}
+			cacheControl += ", immutable"
+		}
+
+		w.Header().Set("Cache-Control", cacheControl)
+		writeJSON(w, http.StatusOK, r.curriculum)
+	})
+	return middleware.SessionAuthentication(r.sessionService, handler)
+}
+
 func validateOrigin(allowedOrigin string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		origin := req.Header.Get("Origin")
@@ -346,7 +390,13 @@ func preflightMethod(path string) (string, bool) {
 		return http.MethodPost, true
 	case "/api/v1/learners/me", "/api/v1/me":
 		return http.MethodGet, true
+	case "/api/v1/curriculum":
+		return http.MethodGet, true
 	default:
+		if strings.HasPrefix(path, "/api/v1/curriculum/") {
+			version := strings.TrimPrefix(path, "/api/v1/curriculum/")
+			return http.MethodGet, version != "" && !strings.Contains(version, "/")
+		}
 		return "", false
 	}
 }
