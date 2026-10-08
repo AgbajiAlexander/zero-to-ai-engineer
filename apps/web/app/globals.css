@@ -256,6 +256,13 @@ h2 {
   border-color: #6da788;
 }
 
+.field-hint {
+  margin: -3px 0 2px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
 .button {
   min-height: 45px;
   width: 100%;

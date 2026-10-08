@@ -232,10 +232,13 @@ async function loadAuthenticatedScreen(): Promise<Screen> {
   }
 }
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: unknown, authMode?: "login" | "register"): string {
   if (error instanceof APIError) {
     switch (error.code) {
       case "invalid_request":
+        if (authMode === "register") {
+          return "Enter a valid email address and a password between 12 and 128 characters.";
+        }
         return "Check your details and try again.";
       case "email_already_registered":
         return "An account with this email already exists. Sign in instead.";
@@ -287,6 +290,14 @@ export default function Home() {
 
   async function submitAuthentication(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (mode === "register") {
+      const passwordLength = Array.from(password).length;
+      if (passwordLength < 12 || passwordLength > 128) {
+        setMessage("Your password must be between 12 and 128 characters.");
+        return;
+      }
+    }
+
     setBusy(true);
     setMessage("");
 
@@ -310,7 +321,7 @@ export default function Home() {
       setPassword("");
       setScreen(await loadAuthenticatedScreen());
     } catch (error) {
-      setMessage(errorMessage(error));
+      setMessage(errorMessage(error, mode));
     } finally {
       setBusy(false);
     }
@@ -427,9 +438,15 @@ export default function Home() {
                   name="password"
                   onChange={(event) => setPassword(event.target.value)}
                   required
+                  aria-describedby={mode === "register" ? "password-requirements" : undefined}
                   type="password"
                   value={password}
                 />
+                {mode === "register" && (
+                  <p className="field-hint" id="password-requirements">
+                    Use 12–128 characters. Passwords are case-sensitive.
+                  </p>
+                )}
                 <button className="button button-primary" disabled={busy} type="submit">
                   {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
                   {!busy && <span aria-hidden="true">↗</span>}
