@@ -484,7 +484,7 @@ export default function Home() {
               <p className="eyebrow"><span className="eyebrow-dot" /> PROFILE READY</p>
               <h2>Good to have you here, {screen.learner.display_name}.</h2>
               <p className="panel-description">
-                Your learner profile is set up. Your next steps will appear here as the learning path is built.
+                Your learner profile is set up. Explore the first skills in your learning path.
               </p>
               <div className="profile-card">
                 <span className="profile-avatar" aria-hidden="true">
