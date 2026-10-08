@@ -58,11 +58,12 @@ therefore defines curriculum content and structure only.
   decoding; do not add a content-format dependency for the initial version.
 - Each document contains `schema_version`, `version`, `title`, `skills`,
   `milestones`, and `activities`. A skill has an `id`, `title`, one or more
-  measurable `objectives`, and optional prerequisite skill IDs. A milestone
-  has an `id`, `title`, and one or more skill IDs. An activity reference has
-  an `id`, a `kind` (`mission`, `project`, or `assessment`), and one or more
-  skill IDs. IDs are unique within each collection; every skill belongs to
-  exactly one milestone.
+  measurable `objectives`, optional prerequisite skill IDs, and optional
+  authored lesson prose in the `lesson` Markdown string. Older documents may
+  omit `lesson`. A milestone has an `id`, `title`, and one or more skill IDs.
+  An activity reference has an `id`, a `kind` (`mission`, `project`, or
+  `assessment`), and one or more skill IDs. IDs are unique within each
+  collection; every skill belongs to exactly one milestone.
 - Treat PostgreSQL as the authority for learner and application state, not as
   the initial authoring store for curriculum documents.
 - Publish content only through reviewed source-control changes and a normal
@@ -95,9 +96,10 @@ therefore defines curriculum content and structure only.
 - A published version is immutable in meaning. Corrections that change
   objectives, prerequisites, or activity requirements produce a new version.
 - A previously published version remains available in source control for
-  reproducibility. Runtime retention, learner-version pinning, and retirement
-  policy must be decided alongside ADR-015/ADR-016 before assignment workflows
-  are implemented.
+  reproducibility and remains available from the version-pinned read-only
+  route while its document is embedded in the deployed API. Removing a
+  published document requires an explicit retirement decision and must not
+  silently change the meaning of that version.
 - Stable identifiers may be referenced by external content only when they
   resolve within the declared curriculum version.
 
@@ -120,8 +122,9 @@ therefore defines curriculum content and structure only.
   unauthorized responses or share authenticated content through a public
   cache.
 - The frontend renders content as content only. Markdown or other authored
-  text must not be interpreted as trusted HTML or executable code. Any future
-  rich-content renderer requires an explicit, tested sanitization policy.
+  text must not be interpreted as trusted HTML or executable code. Lesson text
+  is rendered as inert text unless an explicit, tested sanitization policy is
+  approved for a future rich-content renderer.
 
 ### Content quality and safety
 
@@ -164,7 +167,8 @@ therefore defines curriculum content and structure only.
 ## Deferred Decisions
 
 - What retention and learner-version pinning guarantees are required when a
-  learner has started a curriculum version?
+  learner has started a curriculum version? Retaining published documents in
+  deployments does not itself pin an individual learner to a version.
 - Should editorial workflow remain Git-based after the first release, or is a
   separate authoring requirement expected?
 

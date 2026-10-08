@@ -11,17 +11,65 @@ func TestDefaultLoadsComputationalThinkingCurriculum(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Default() error = %v", err)
 	}
-	if got.Version != "1.0.0" {
-		t.Errorf("Version = %q, want %q", got.Version, "1.0.0")
+	if got.Version != CurrentVersion {
+		t.Errorf("Version = %q, want %q", got.Version, CurrentVersion)
 	}
-	if len(got.Skills) != 4 {
-		t.Errorf("skills = %d, want 4", len(got.Skills))
+	if len(got.Skills) != 9 {
+		t.Errorf("skills = %d, want 9", len(got.Skills))
 	}
-	if len(got.Milestones) != 1 {
-		t.Errorf("milestones = %d, want 1", len(got.Milestones))
+	if len(got.Milestones) != 2 {
+		t.Errorf("milestones = %d, want 2", len(got.Milestones))
 	}
 	if err := got.Validate(); err != nil {
 		t.Errorf("Validate() error = %v", err)
+	}
+}
+
+func TestPublishedPreservesPreviousVersion(t *testing.T) {
+	published, err := Published()
+	if err != nil {
+		t.Fatalf("Published() error = %v", err)
+	}
+	previous, ok := published["1.0.0"]
+	if !ok {
+		t.Fatal("Published() does not include immutable version 1.0.0")
+	}
+	if len(previous.Skills) != 4 || len(previous.Milestones) != 1 {
+		t.Errorf("version 1.0.0 changed: skills=%d milestones=%d", len(previous.Skills), len(previous.Milestones))
+	}
+	for _, skill := range previous.Skills {
+		if skill.Lesson != "" {
+			t.Errorf("version 1.0.0 skill %q unexpectedly has lesson content", skill.ID)
+		}
+	}
+	if _, ok := published[CurrentVersion]; !ok {
+		t.Errorf("Published() does not include current version %q", CurrentVersion)
+	}
+}
+
+func TestCurrentVersionIncludesPythonLessons(t *testing.T) {
+	current, err := Default()
+	if err != nil {
+		t.Fatalf("Default() error = %v", err)
+	}
+	for _, skillID := range []string{
+		"programming-foundations.values-and-types",
+		"programming-foundations.variables-and-expressions",
+		"programming-foundations.conditional-logic",
+		"programming-foundations.loops",
+		"programming-foundations.functions",
+	} {
+		t.Run(skillID, func(t *testing.T) {
+			for _, skill := range current.Skills {
+				if skill.ID == skillID {
+					if !validText(skill.Lesson) {
+						t.Error("Python skill lesson is missing")
+					}
+					return
+				}
+			}
+			t.Fatalf("skill %q is missing", skillID)
+		})
 	}
 }
 
@@ -65,6 +113,12 @@ func TestValidateRejectsDuplicateSkillIDs(t *testing.T) {
 	value := validFixture()
 	value.Skills[1].ID = value.Skills[0].ID
 	assertInvalid(t, value, "duplicate skill")
+}
+
+func TestValidateRejectsWhitespaceOnlyLesson(t *testing.T) {
+	value := validFixture()
+	value.Skills[0].Lesson = " \n\t "
+	assertInvalid(t, value, "empty lesson")
 }
 
 func TestValidateRejectsMissingPrerequisite(t *testing.T) {

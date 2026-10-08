@@ -161,7 +161,12 @@ func TestRouter_CurriculumCurrentAndVersionedResponses(t *testing.T) {
 			cacheControl: "private, max-age=300",
 		},
 		{
-			name:         "versioned curriculum",
+			name:         "current pinned curriculum",
+			path:         "/api/v1/curriculum/1.1.0",
+			cacheControl: "private, max-age=300, immutable",
+		},
+		{
+			name:         "previous immutable curriculum",
 			path:         "/api/v1/curriculum/1.0.0",
 			cacheControl: "private, max-age=300, immutable",
 		},
@@ -181,9 +186,16 @@ func TestRouter_CurriculumCurrentAndVersionedResponses(t *testing.T) {
 			if got := recorder.Header().Get("Cache-Control"); got != test.cacheControl {
 				t.Errorf("Cache-Control = %q; want %q", got, test.cacheControl)
 			}
-			if !strings.Contains(recorder.Body.String(), `"version":"1.0.0"`) ||
-				!strings.Contains(recorder.Body.String(), `"computational-thinking.decompose-problems"`) {
+			if !strings.Contains(recorder.Body.String(), `"computational-thinking.decompose-problems"`) {
 				t.Errorf("curriculum response is missing the version or starter skill: %s", recorder.Body.String())
+			}
+			if test.name == "previous immutable curriculum" {
+				if !strings.Contains(recorder.Body.String(), `"version":"1.0.0"`) ||
+					strings.Contains(recorder.Body.String(), `"programming-foundations.values-and-types"`) {
+					t.Errorf("previous published curriculum changed: %s", recorder.Body.String())
+				}
+			} else if !strings.Contains(recorder.Body.String(), `"version":"1.1.0"`) {
+				t.Errorf("current curriculum version missing: %s", recorder.Body.String())
 			}
 		})
 	}
@@ -543,6 +555,7 @@ func TestRouter_PreflightIncludesIdentityRoutes(t *testing.T) {
 		{path: "/api/v1/learners/onboard", method: http.MethodPost},
 		{path: "/api/v1/learners/me", method: http.MethodGet},
 		{path: "/api/v1/curriculum", method: http.MethodGet},
+		{path: "/api/v1/curriculum/1.1.0", method: http.MethodGet},
 		{path: "/api/v1/curriculum/1.0.0", method: http.MethodGet},
 	}
 	for _, test := range tests {

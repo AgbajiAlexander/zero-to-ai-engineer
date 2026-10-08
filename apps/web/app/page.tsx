@@ -20,6 +20,7 @@ type CurriculumSkill = {
   title: string;
   objectives: string[];
   prerequisites: string[];
+  lesson?: string;
 };
 
 type Curriculum = {
@@ -145,7 +146,8 @@ function readSkill(payload: unknown): CurriculumSkill {
     typeof payload.id !== "string" ||
     typeof payload.title !== "string" ||
     !isStringArray(payload.objectives) ||
-    !isStringArray(payload.prerequisites)
+    !isStringArray(payload.prerequisites) ||
+    ("lesson" in payload && typeof payload.lesson !== "string")
   ) {
     throw new Error("The API returned an invalid curriculum response.");
   }
@@ -154,6 +156,7 @@ function readSkill(payload: unknown): CurriculumSkill {
     title: payload.title,
     objectives: payload.objectives,
     prerequisites: payload.prerequisites,
+    ...(typeof payload.lesson === "string" ? { lesson: payload.lesson } : {}),
   };
 }
 
@@ -536,6 +539,12 @@ export default function Home() {
                               <ul className="curriculum-objectives">
                                 {skill.objectives.map((objective) => <li key={objective}>{objective}</li>)}
                               </ul>
+                              {skill.lesson && (
+                                <details className="curriculum-lesson">
+                                  <summary>Read lesson</summary>
+                                  <p>{skill.lesson}</p>
+                                </details>
+                              )}
                               {skill.prerequisites.length > 0 && (
                                 <small>
                                   Builds on: {skill.prerequisites

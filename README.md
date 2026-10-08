@@ -327,30 +327,32 @@ Current stage:
 The Go API foundation, PostgreSQL migrations, authentication, and learner onboarding API are implemented. The Next.js application now provides the initial registration, sign-in, and learner-onboarding flow against those API contracts.
 
 ADR-013 — Frontend Architecture & UX System — and ADR-014 — Curriculum Content
-Architecture — are accepted. The Go API now embeds a versioned starter
-curriculum, validates its skill graph, and serves it through authenticated
-read-only current/versioned API routes. The learner-facing curriculum screen
-and assignment remain ahead; ADR-015 and ADR-016 are also referenced by
-`AGENTS.md` but are not currently present, so assessment, evidence, mastery,
-and adaptive progression remain blocked on those decisions.
+Architecture — are accepted. The Go API embeds immutable curriculum versions,
+validates their skill graphs, and serves the current or requested version
+through authenticated read-only routes. The learner view currently covers
+Computational Thinking and Programming Foundations / Python; the current
+curriculum draft also includes authored lesson prose for its five Python
+skills. Lesson content is displayed as inert text. Assessment, evidence,
+learner assignment, mastery, and adaptive progression remain blocked on
+ADR-015 and ADR-016, which are referenced by `AGENTS.md` but not currently
+present.
 
 The remaining implementation sequence must follow the approved architecture.
 Assessment, evidence, and progression work require the applicable ADRs
 referenced in `AGENTS.md` to be present and accepted.
 
-1. Learner-facing curriculum experience and content expansion
-2. Missions
-3. Assessment and submissions
-4. Evidence and evaluation
-5. Mastery Engine
-6. Adaptive Roadmap
-7. Rewards and streaks
-8. AI Mentor
-9. Secure sandbox
-10. Collaboration
-11. Projects
-12. Complete frontend experience
-13. Security and production hardening
-14. Staging and production deployment
+1. Design and implement learning missions
+2. Assessment and submissions
+3. Evidence and evaluation
+4. Mastery Engine
+5. Adaptive Roadmap
+6. Rewards and streaks
+7. AI Mentor
+8. Secure sandbox
+9. Collaboration
+10. Projects
+11. Complete frontend experience
+12. Security and production hardening
+13. Staging and production deployment
 
 This README describes the approved project direction and must not be treated as permission to redesign the architecture.

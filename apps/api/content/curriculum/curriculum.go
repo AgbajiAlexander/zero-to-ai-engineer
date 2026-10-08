@@ -2,15 +2,17 @@ package curriculum
 
 import (
 	"bytes"
-	_ "embed"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"strings"
 )
 
 const supportedSchemaVersion = 1
+const CurrentVersion = "1.1.0"
 
 const (
 	ActivityMission    = "mission"
@@ -18,8 +20,8 @@ const (
 	ActivityAssessment = "assessment"
 )
 
-//go:embed v1.json
-var defaultDocument []byte
+//go:embed *.json
+var documents embed.FS
 
 var ErrInvalidCurriculum = errors.New("curriculum: invalid curriculum")
 
@@ -37,6 +39,7 @@ type Skill struct {
 	Title         string   `json:"title"`
 	Objectives    []string `json:"objectives"`
 	Prerequisites []string `json:"prerequisites"`
+	Lesson        string   `json:"lesson,omitempty"`
 }
 
 type Milestone struct {
@@ -53,7 +56,43 @@ type ActivityReference struct {
 
 // Default returns the embedded, validated starter curriculum.
 func Default() (Curriculum, error) {
-	return Load(defaultDocument)
+	published, err := Published()
+	if err != nil {
+		return Curriculum{}, err
+	}
+	value, ok := published[CurrentVersion]
+	if !ok {
+		return Curriculum{}, invalid("current version %q is missing", CurrentVersion)
+	}
+	return value, nil
+}
+
+// Published loads and validates every immutable curriculum version embedded in this package.
+func Published() (map[string]Curriculum, error) {
+	files, err := fs.Glob(documents, "*.json")
+	if err != nil {
+		return nil, fmt.Errorf("%w: list published documents: %v", ErrInvalidCurriculum, err)
+	}
+	published := make(map[string]Curriculum, len(files))
+	for _, filename := range files {
+		version := strings.TrimSuffix(filename, ".json")
+		if !validIdentifier(version) {
+			return nil, invalid("invalid published version filename %q", filename)
+		}
+		document, err := fs.ReadFile(documents, filename)
+		if err != nil {
+			return nil, fmt.Errorf("%w: read published version %q: %v", ErrInvalidCurriculum, version, err)
+		}
+		value, err := Load(document)
+		if err != nil {
+			return nil, fmt.Errorf("curriculum: published version %q: %w", version, err)
+		}
+		if value.Version != version {
+			return nil, invalid("document version %q does not match filename %q", value.Version, filename)
+		}
+		published[version] = value
+	}
+	return published, nil
 }
 
 // Load decodes one curriculum document and validates its schema and references.
@@ -109,6 +148,9 @@ func (value Curriculum) Validate() error {
 			if !validText(objective) {
 				return invalid("skill %q has an empty objective", skill.ID)
 			}
+		}
+		if skill.Lesson != "" && !validText(skill.Lesson) {
+			return invalid("skill %q has an empty lesson", skill.ID)
 		}
 	}
 

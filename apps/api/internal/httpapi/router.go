@@ -22,6 +22,7 @@ type Router struct {
 	identityService   identity.Service
 	learnerService    learner.Service
 	curriculum        curriculum.Curriculum
+	curricula         map[string]curriculum.Curriculum
 	readyHandler      http.Handler
 	allowedOrigin     string
 	logout            http.Handler
@@ -39,15 +40,20 @@ func NewRouter(sessionService session.Service, identityService identity.Service,
 	if sessionService == nil || identityService == nil || learnerService == nil || readyHandler == nil {
 		return nil, errors.New("httpapi: session, identity, learner services and ready handler are required")
 	}
-	content, err := curriculum.Default()
+	published, err := curriculum.Published()
 	if err != nil {
 		return nil, fmt.Errorf("httpapi: load curriculum content: %w", err)
+	}
+	content, ok := published[curriculum.CurrentVersion]
+	if !ok {
+		return nil, fmt.Errorf("httpapi: current curriculum version %q is missing", curriculum.CurrentVersion)
 	}
 	router := &Router{
 		sessionService:  sessionService,
 		identityService: identityService,
 		learnerService:  learnerService,
 		curriculum:      content,
+		curricula:       published,
 		readyHandler:    readyHandler,
 		allowedOrigin:   allowedOrigin,
 	}
@@ -339,17 +345,20 @@ func (r *Router) buildLogoutHandler() http.Handler {
 func (r *Router) buildCurriculumHandler(versionFromPath bool) http.Handler {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		cacheControl := "private, max-age=300"
+		content := r.curriculum
 		if versionFromPath {
 			version := strings.TrimPrefix(req.URL.Path, "/api/v1/curriculum/")
-			if version == "" || strings.Contains(version, "/") || version != r.curriculum.Version {
+			published, exists := r.curricula[version]
+			if version == "" || strings.Contains(version, "/") || !exists {
 				writeJSONError(w, http.StatusNotFound, "not_found")
 				return
 			}
+			content = published
 			cacheControl += ", immutable"
 		}
 
 		w.Header().Set("Cache-Control", cacheControl)
-		writeJSON(w, http.StatusOK, r.curriculum)
+		writeJSON(w, http.StatusOK, content)
 	})
 	return middleware.SessionAuthentication(r.sessionService, handler)
 }

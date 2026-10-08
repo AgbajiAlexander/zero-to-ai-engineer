@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "version": "1.1.0",
+  "title": "ZERO to AI Engineer",
+  "skills": [
+    {
+      "id": "computational-thinking.decompose-problems",
+      "title": "Decompose problems",
+      "objectives": [
+        "Break a problem into smaller tasks with clear inputs and outputs.",
+        "Explain how solving the smaller tasks contributes to the original goal."
+      ],
+      "prerequisites": []
+    },
+    {
+      "id": "computational-thinking.recognise-patterns",
+      "title": "Recognise patterns",
+      "objectives": [
+        "Compare examples and identify repeated structures or rules.",
+        "Use a discovered pattern to describe how a new example may behave."
+      ],
+      "prerequisites": []
+    },
+    {
+      "id": "computational-thinking.abstract-details",
+      "title": "Abstract relevant details",
+      "objectives": [
+        "Separate information relevant to a stated goal from irrelevant detail.",
+        "Represent a problem using only the information needed to solve it."
+      ],
+      "prerequisites": [
+        "computational-thinking.decompose-problems"
+      ]
+    },
+    {
+      "id": "computational-thinking.design-algorithms",
+      "title": "Design step-by-step algorithms",
+      "objectives": [
+        "Write an ordered set of unambiguous steps that solves a defined problem.",
+        "Trace the steps against an example input and identify the expected output."
+      ],
+      "prerequisites": [
+        "computational-thinking.decompose-problems",
+        "computational-thinking.recognise-patterns",
+        "computational-thinking.abstract-details"
+      ]
+    },
+    {
+      "id": "programming-foundations.values-and-types",
+      "title": "Work with values and data types",
+      "objectives": [
+        "Identify common Python values such as integers, decimals, strings, and booleans.",
+        "Choose a suitable basic data type to represent a value in a small problem."
+      ],
+      "prerequisites": [
+        "computational-thinking.design-algorithms"
+      ],
+      "lesson": "A value is a piece of data your program can work with. Python has integers for whole numbers, floats for numbers with a fractional part, strings for text, and booleans for the truth values True and False. A value's type affects which operations make sense: adding two numbers calculates a total, while joining two strings combines text.\n\nThe characters you write matter. 5 is an integer, while \"5\" is a string. They may look similar to a person, but Python treats them as different kinds of data. Choose a type that matches what the value represents, and convert between types deliberately rather than assuming Python will guess what you mean.\n\nExample:\nquantity = 3\nprice = 2.5\nlabel = \"notebook\"\nin_stock = True\n\nBefore combining values, ask what result you intend. Adding quantity and price is allowed but may not describe a useful real-world calculation; multiplying them gives a numeric total. What type would you choose for a learner's name, number of attempts, and whether a task is complete?"
+    },
+    {
+      "id": "programming-foundations.variables-and-expressions",
+      "title": "Use variables and expressions",
+      "objectives": [
+        "Assign descriptive names to values and explain how assignment changes a binding.",
+        "Evaluate arithmetic, comparison, and boolean expressions step by step."
+      ],
+      "prerequisites": [
+        "programming-foundations.values-and-types"
+      ],
+      "lesson": "A variable is a name bound to a value. Assignment creates or changes that binding; it does not mean the variable is a permanent box with one unchanging value. Descriptive names such as total_points help a reader understand why a value is used.\n\nAn expression combines values and operators to produce a result. Python evaluates multiplication before addition, and parentheses let you make the intended order explicit. Comparisons such as score >= 10 produce a boolean, which can then be combined with and, or, and not.\n\nExample:\nprice = 4\nquantity = 3\ntotal = price * quantity\nhas_discount = total >= 10\n\nThe single equals sign assigns a value. The double equals sign compares two values. Trace an expression from its names to its result, and check that the types are appropriate. If quantity changes later, total does not change automatically; the assignment to total must be evaluated again."
+    },
+    {
+      "id": "programming-foundations.conditional-logic",
+      "title": "Control flow with conditions",
+      "objectives": [
+        "Describe how a condition evaluates to a boolean result.",
+        "Trace if, elif, and else branches for representative inputs."
+      ],
+      "prerequisites": [
+        "programming-foundations.variables-and-expressions"
+      ],
+      "lesson": "A conditional lets a program choose which instructions to run. An if statement evaluates a condition, which should produce True or False. If it is true, the indented block runs; otherwise Python checks an elif condition or uses the else block. At most one branch in this chain runs.\n\nPut the most specific cases before broader cases. For example, if a score of 90 or more earns an excellent label and a score of 50 or more passes, check the 90-point threshold first. Reversing the checks would classify every passing score as excellent before the specific case is reached.\n\nExample:\nscore = 72\nif score >= 90:\n    result = \"excellent\"\nelif score >= 50:\n    result = \"pass\"\nelse:\n    result = \"retry\"\n\nTrace the condition from top to bottom for scores just below, at, and just above each boundary. Indentation is part of Python's syntax, so keep the statements belonging to each branch aligned consistently."
+    },
+    {
+      "id": "programming-foundations.loops",
+      "title": "Repeat work with loops",
+      "objectives": [
+        "Choose between a for loop and a while loop for a clearly defined repetition.",
+        "Trace loop state and explain when the loop terminates."
+      ],
+      "prerequisites": [
+        "programming-foundations.conditional-logic"
+      ],
+      "lesson": "A loop repeats a block of work. Use a for loop when you can describe the items or range to visit. Use a while loop when repetition should continue until a condition changes. In both cases, understand what changes on each pass and what makes the loop stop.\n\nA range such as range(3) produces 0, 1, and 2: its stop value is not included. A while loop can run forever if its condition never becomes false, so plan the update that moves it toward termination. Trace a small example by writing down the loop variable and other changing values after each iteration.\n\nExample:\ntotal = 0\nfor number in range(3):\n    total = total + number\n\nThe values added are 0, then 1, then 2, so total ends at 3. For a while loop, compare the condition before every pass, including the final check that stops it. What would happen to this example if the range included 3, or if the total were reset inside the loop?"
+    },
+    {
+      "id": "programming-foundations.functions",
+      "title": "Organise logic with functions",
+      "objectives": [
+        "Define and call a function with parameters to perform one named task.",
+        "Explain the difference between a function's inputs, local work, and returned result."
+      ],
+      "prerequisites": [
+        "programming-foundations.loops"
+      ],
+      "lesson": "A function gives a named piece of work a clear boundary. Define it with def, list its parameters in parentheses, and indent the statements that belong to its body. Calling the function supplies arguments for those parameters and runs the body.\n\nA return statement sends a result back to the caller. print displays information but does not provide a result for later calculation. Keeping those jobs distinct makes functions easier to reuse and test. Names created inside a function are local to that function unless deliberately returned or otherwise exposed.\n\nExample:\ndef rectangle_area(width, height):\n    return width * height\n\narea = rectangle_area(4, 3)\n\nHere width and height are parameters; 4 and 3 are the arguments. The function returns 12, which the assignment stores in area. A useful function has a focused purpose, meaningful parameter names, and a result the caller can use. Before adding a function, explain its inputs, the work it performs, and what it returns."
+    }
+  ],
+  "milestones": [
+    {
+      "id": "computational-thinking",
+      "title": "Computational Thinking",
+      "skill_ids": [
+        "computational-thinking.decompose-problems",
+        "computational-thinking.recognise-patterns",
+        "computational-thinking.abstract-details",
+        "computational-thinking.design-algorithms"
+      ]
+    },
+    {
+      "id": "programming-foundations-python",
+      "title": "Programming Foundations / Python",
+      "skill_ids": [
+        "programming-foundations.values-and-types",
+        "programming-foundations.variables-and-expressions",
+        "programming-foundations.conditional-logic",
+        "programming-foundations.loops",
+        "programming-foundations.functions"
+      ]
+    }
+  ],
+  "activities": []
+}

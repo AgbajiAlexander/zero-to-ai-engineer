@@ -507,6 +507,28 @@ h2 {
   margin-top: 4px;
 }
 
+.curriculum-lesson {
+  margin-top: 9px;
+  color: #43534a;
+  font-size: 10px;
+}
+
+.curriculum-lesson summary {
+  width: fit-content;
+  color: var(--green);
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.curriculum-lesson p {
+  margin: 7px 0 0;
+  color: #43534a;
+  font-size: 10px;
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
 .curriculum-skill small {
   margin-top: 5px;
   display: block;
