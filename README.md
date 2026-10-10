@@ -356,3 +356,5 @@ referenced in `AGENTS.md` to be present and accepted.
 13. Staging and production deployment
 
 This README describes the approved project direction and must not be treated as permission to redesign the architecture.
+
+by Agbaji
