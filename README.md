@@ -357,4 +357,4 @@ referenced in `AGENTS.md` to be present and accepted.
 
 This README describes the approved project direction and must not be treated as permission to redesign the architecture.
 
-by Agbaji
+re
